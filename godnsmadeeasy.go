@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-type client struct {
+type Client struct {
 	Endpoint   string
 	Key        string
 	Secret     string
@@ -117,8 +117,8 @@ type UpdateRecord struct {
 	Ttl         int    `json:"ttl"`
 }
 
-func NewClient(endpoint string, key string, secret string) *client {
-	client := client{
+func NewClient(endpoint string, key string, secret string) *Client {
+	client := Client{
 		Endpoint:   endpoint,
 		Key:        key,
 		Secret:     secret,
@@ -138,7 +138,7 @@ func getHmac(secret string, message string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func (client *client) apiRequest(request Request) ([]byte, error) {
+func (client *Client) apiRequest(request Request) ([]byte, error) {
 	uri, err := url.Parse(client.Endpoint)
 	if err != nil {
 		return []byte{}, fmt.Errorf("unable to parse endpoint: %v", err)
@@ -172,7 +172,7 @@ func (client *client) apiRequest(request Request) ([]byte, error) {
 }
 
 // Get single domain by id
-func (client *client) GetSingleDomainById(domainId int) (Domain, error) {
+func (client *Client) GetSingleDomainById(domainId int) (Domain, error) {
 	request := Request{
 		http.MethodGet,
 		fmt.Sprintf("/dns/managed/%v", domainId),
@@ -192,7 +192,7 @@ func (client *client) GetSingleDomainById(domainId int) (Domain, error) {
 }
 
 // Get single domain by name
-func (client *client) GetSingleDomainByName(domainName string) (Domain, error) {
+func (client *Client) GetSingleDomainByName(domainName string) (Domain, error) {
 	request := Request{
 		http.MethodGet,
 		fmt.Sprintf("/dns/managed/name"),
@@ -212,7 +212,7 @@ func (client *client) GetSingleDomainByName(domainName string) (Domain, error) {
 }
 
 // Add single domain
-func (client *client) AddSingleDomain(domainName string) (Domain, error) {
+func (client *Client) AddSingleDomain(domainName string) (Domain, error) {
 	reqBody := NewDomain{Name: domainName}
 	reqBodyBytes, _ := json.Marshal(reqBody)
 	request := Request{
@@ -234,7 +234,7 @@ func (client *client) AddSingleDomain(domainName string) (Domain, error) {
 }
 
 // Delete single domain
-func (client *client) DeleteSingleDomain(domainId int) error {
+func (client *Client) DeleteSingleDomain(domainId int) error {
 	request := Request{
 		http.MethodDelete,
 		fmt.Sprintf("/dns/managed/%v", domainId),
@@ -249,7 +249,7 @@ func (client *client) DeleteSingleDomain(domainId int) error {
 }
 
 // Get all domains
-func (client *client) GetAllDomains(index string, order string) (DomainsList, error) {
+func (client *Client) GetAllDomains(index string, order string) (DomainsList, error) {
 	var domains DomainsList
 	if index != "name" && index != "updated" && index != "id" && index != "folder" {
 		return domains, fmt.Errorf("index %v is not in name, updated, id, folder", index)
@@ -275,7 +275,7 @@ func (client *client) GetAllDomains(index string, order string) (DomainsList, er
 }
 
 // get all records
-func (client *client) GetAllRecords(domainId int) (RecordsList, error) {
+func (client *Client) GetAllRecords(domainId int) (RecordsList, error) {
 	request := Request{
 		http.MethodGet,
 		fmt.Sprintf("/dns/managed/%v/records", domainId),
@@ -295,7 +295,7 @@ func (client *client) GetAllRecords(domainId int) (RecordsList, error) {
 }
 
 // add record
-func (client *client) AddRecord(domainId int,
+func (client *Client) AddRecord(domainId int,
 	recordName string,
 	recordType string,
 	recordValue string,
@@ -328,7 +328,7 @@ func (client *client) AddRecord(domainId int,
 }
 
 // update record
-func (client *client) UpdateRecord(domainId int,
+func (client *Client) UpdateRecord(domainId int,
 	recordName string,
 	recordType string,
 	recordValue string,
@@ -358,7 +358,7 @@ func (client *client) UpdateRecord(domainId int,
 }
 
 // delete record
-func (client *client) DeleteRecord(domainId int, recordId int) error {
+func (client *Client) DeleteRecord(domainId int, recordId int) error {
 	request := Request{
 		http.MethodDelete,
 		fmt.Sprintf("/dns/managed/%v/records/%v", domainId, recordId),
