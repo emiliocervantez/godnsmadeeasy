@@ -1,23 +1,22 @@
 package godnsmadeeasy
 
 import (
-	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 )
 
-func TestGetSingleDomainStruct(t *testing.T) {
-	respBody, _ := json.Marshal("{ \"Name\": \"bla-bla-bla\" }")
+func TestGetSingleDomainNotFound(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
-		w.Write(respBody)
+		w.WriteHeader(404)
+		w.Write([]byte{})
 	}))
 	defer testServer.Close()
 	client := NewClient(testServer.URL, "", "")
 	_, err := client.GetSingleDomainById(666)
-	if err == nil && strings.Contains(err.Error(), "unable to json-unmarshal response body") == false {
+	var e *ErrDomainIdNotFound
+	if errors.As(err, &e) == false {
 		t.Errorf("Test error: %v", err)
 	}
 }
@@ -25,7 +24,8 @@ func TestGetSingleDomainStruct(t *testing.T) {
 func TestGetSingleDomainApiRequest(t *testing.T) {
 	client := NewClient("https://aaa.aa", "", "")
 	_, err := client.GetSingleDomainById(666)
-	if err == nil && strings.Contains(err.Error(), "api request error") == false {
+	var e *ErrApiRequest
+	if errors.As(err, &e) == false {
 		t.Errorf("Test error: %v", err)
 	}
 }

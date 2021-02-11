@@ -46,6 +46,27 @@ type UpdateRecord struct {
 	Ttl         int    `json:"ttl"`
 }
 
+type ErrRecordExists struct {
+	Type  string
+	Name  string
+	Value string
+	Err   error
+}
+
+func (e *ErrRecordExists) Error() string {
+	return fmt.Sprintf("record (type: %v, name: %v, value: %v) exists", e.Type, e.Name, e.Value)
+}
+
+type ErrDomainIdOrRecordIdNotFound struct {
+	DomainId int
+	RecordId int
+	Err      error
+}
+
+func (e *ErrDomainIdOrRecordIdNotFound) Error() string {
+	return fmt.Sprintf("domain id %v or record id %v not found", e.DomainId, e.RecordId)
+}
+
 // get all records
 func (client *Client) GetAllRecords(domainId int) (RecordsList, error) {
 	request := Request{
@@ -55,14 +76,14 @@ func (client *Client) GetAllRecords(domainId int) (RecordsList, error) {
 		[]byte(""),
 	}
 	var records RecordsList
-	body, err := client.apiRequest(request)
+	status, body, err := client.apiRequest(request)
 	if err != nil {
-		return records, fmt.Errorf("api request error: %v", err)
+		return records, &ErrApiRequest{Err: err}
 	}
-	err = json.Unmarshal(body, &records)
-	if err != nil {
-		return records, fmt.Errorf("unable to json-unmarshal response body: %v", err)
+	if status == 404 {
+		return records, &ErrDomainIdNotFound{Id: domainId}
 	}
+	_ = json.Unmarshal(body, &records)
 	return records, err
 }
 
@@ -88,14 +109,21 @@ func (client *Client) AddRecord(domainId int,
 		reqBodyBytes,
 	}
 	var record Record
-	body, err := client.apiRequest(request)
+	status, body, err := client.apiRequest(request)
 	if err != nil {
-		return record, fmt.Errorf("api request error: %v", err)
+		return record, &ErrApiRequest{Err: err}
 	}
-	err = json.Unmarshal(body, &record)
-	if err != nil {
-		return record, fmt.Errorf("unable to json-unmarshal response body: %v", err)
+	if status == 404 {
+		return record, &ErrRecordExists{
+			Type:  recordName,
+			Name:  recordType,
+			Value: recordValue,
+		}
 	}
+	if status == 400 {
+		return record, &ErrFormat{Err: err}
+	}
+	_ = json.Unmarshal(body, &record)
 	return record, err
 }
 
@@ -122,9 +150,18 @@ func (client *Client) UpdateRecord(domainId int,
 		map[string]string{},
 		reqBodyBytes,
 	}
-	_, err := client.apiRequest(request)
+	status, _, err := client.apiRequest(request)
 	if err != nil {
-		return fmt.Errorf("api request error: %v", err)
+		return &ErrApiRequest{Err: err}
+	}
+	if status == 404 {
+		return &ErrDomainIdOrRecordIdNotFound{
+			DomainId: domainId,
+			RecordId: recordId,
+		}
+	}
+	if status == 400 {
+		return &ErrFormat{Err: err}
 	}
 	return err
 }
@@ -137,9 +174,15 @@ func (client *Client) DeleteRecord(domainId int, recordId int) error {
 		map[string]string{},
 		[]byte(""),
 	}
-	_, err := client.apiRequest(request)
+	status, _, err := client.apiRequest(request)
 	if err != nil {
-		return fmt.Errorf("api request error: %v", err)
+		return &ErrApiRequest{Err: err}
+	}
+	if status == 404 {
+		return &ErrDomainIdOrRecordIdNotFound{
+			DomainId: domainId,
+			RecordId: recordId,
+		}
 	}
 	return err
 }

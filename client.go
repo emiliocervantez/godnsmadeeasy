@@ -48,10 +48,18 @@ func getHmac(secret string, message string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func (client *Client) apiRequest(request Request) ([]byte, error) {
+type ErrApiRequest struct {
+	Err error
+}
+
+func (e *ErrApiRequest) Error() string {
+	return fmt.Sprintf("api error: %v", e.Err)
+}
+
+func (client *Client) apiRequest(request Request) (int, []byte, error) {
 	uri, err := url.Parse(client.Endpoint)
 	if err != nil {
-		return []byte{}, fmt.Errorf("unable to parse endpoint: %v", err)
+		return 0, []byte{}, &ErrApiRequest{Err: err}
 	}
 	uri.Path = path.Join(uri.Path, request.Path)
 	q := uri.Query()
@@ -62,7 +70,7 @@ func (client *Client) apiRequest(request Request) ([]byte, error) {
 	reqDate := getHttpTime()
 	reqHmac := getHmac(client.Secret, reqDate)
 	if request.Method != "GET" && request.Method != "POST" && request.Method != "PUT" && request.Method != "DELETE" {
-		return []byte{}, fmt.Errorf("invalid request method %v", request.Method)
+		return 0, []byte{}, &ErrApiRequest{Err: fmt.Errorf("invalid request method %v", request.Method)}
 	}
 	req, _ := http.NewRequest(request.Method, uri.String(), bytes.NewBuffer(request.Body))
 	req.Header.Add("Content-Type", "application/json")
@@ -72,11 +80,14 @@ func (client *Client) apiRequest(request Request) ([]byte, error) {
 
 	resp, err := client.HttpClient.Do(req)
 	if err != nil {
-		return []byte{}, fmt.Errorf("unable to do request: %v", err)
+		return 0, []byte{}, &ErrApiRequest{Err: err}
 	}
-	if resp.StatusCode != 200 && resp.StatusCode != 201 {
-		return []byte{}, fmt.Errorf("http response status %v is not 200 or 201", resp.StatusCode)
+	if resp.StatusCode >= 500 && resp.StatusCode <= 599 {
+		return 0, []byte{}, &ErrApiRequest{Err: fmt.Errorf("server error %v", resp.Status)}
+	}
+	if resp.StatusCode == 403 {
+		return 0, []byte{}, &ErrApiRequest{Err: fmt.Errorf("auth error %v", resp.Status)}
 	}
 	body, _ := ioutil.ReadAll(resp.Body)
-	return body, error(nil)
+	return resp.StatusCode, body, error(nil)
 }

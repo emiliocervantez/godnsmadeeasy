@@ -1,17 +1,18 @@
 package godnsmadeeasy
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 )
 
 func TestApiRequestInvalidEndpoint(t *testing.T) {
 	request := Request{}
 	client := NewClient("___https://invalid.url", "", "")
-	_, err := client.apiRequest(request)
-	if err == nil && strings.Contains(err.Error(), "unable to parse endpoint") == false {
+	_, _, err := client.apiRequest(request)
+	var e *ErrApiRequest
+	if errors.As(err, &e) == false {
 		t.Errorf("Test error: %v", err)
 	}
 }
@@ -21,8 +22,9 @@ func TestApiRequestInvalidMethod(t *testing.T) {
 		Method: "___INVALID_METHOD",
 	}
 	client := NewClient("https://aaa.aa", "", "")
-	_, err := client.apiRequest(request)
-	if err == nil && strings.Contains(err.Error(), "invalid request method") == false {
+	_, _, err := client.apiRequest(request)
+	var e *ErrApiRequest
+	if errors.As(err, &e) == false {
 		t.Errorf("Test error: %v", err)
 	}
 }
@@ -35,13 +37,14 @@ func TestApiRequestInvalidRequest(t *testing.T) {
 		Body:    []byte(""),
 	}
 	client := NewClient("https://aaa.aa", "", "")
-	_, err := client.apiRequest(request)
-	if err == nil && strings.Contains(err.Error(), "unable to do request") == false {
+	_, _, err := client.apiRequest(request)
+	var e *ErrApiRequest
+	if errors.As(err, &e) == false {
 		t.Errorf("Test error: %v", err)
 	}
 }
 
-func TestApiRequestInvalidResponseStatus(t *testing.T) {
+func TestApiRequestStatus500(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}))
@@ -53,8 +56,28 @@ func TestApiRequestInvalidResponseStatus(t *testing.T) {
 		Body:    []byte("aaa"),
 	}
 	client := NewClient(testServer.URL, "", "")
-	_, err := client.apiRequest(request)
-	if err == nil && strings.Contains(err.Error(), "http response status 500 is not 200 or 201") == false {
+	_, _, err := client.apiRequest(request)
+	var e *ErrApiRequest
+	if errors.As(err, &e) == false {
+		t.Errorf("Test error: %v", err)
+	}
+}
+
+func TestApiRequestStatus403(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(403)
+	}))
+	defer testServer.Close()
+	request := Request{
+		Method:  http.MethodGet,
+		Path:    "/domains/12345",
+		Queries: map[string]string{},
+		Body:    []byte("aaa"),
+	}
+	client := NewClient(testServer.URL, "", "")
+	_, _, err := client.apiRequest(request)
+	var e *ErrApiRequest
+	if errors.As(err, &e) == false {
 		t.Errorf("Test error: %v", err)
 	}
 }

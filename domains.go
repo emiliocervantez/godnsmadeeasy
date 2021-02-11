@@ -55,6 +55,50 @@ type NewDomain struct {
 	Name string `json:"name"`
 }
 
+type ErrDomainNotFound struct {
+	Domain string
+	Err    error
+}
+
+func (e *ErrDomainNotFound) Error() string {
+	return fmt.Sprintf("domain %v not found", e.Domain)
+}
+
+type ErrDomainIdNotFound struct {
+	Id  int
+	Err error
+}
+
+func (e *ErrDomainIdNotFound) Error() string {
+	return fmt.Sprintf("domain id %v not found", e.Id)
+}
+
+type ErrDomainExists struct {
+	Domain string
+	Err    error
+}
+
+func (e *ErrDomainExists) Error() string {
+	return fmt.Sprintf("domain %v already exists", e.Domain)
+}
+
+type ErrDomainIdPending struct {
+	Id  int
+	Err error
+}
+
+func (e *ErrDomainIdPending) Error() string {
+	return fmt.Sprintf("domain id %v is pending", e.Id)
+}
+
+type ErrFormat struct {
+	Err error
+}
+
+func (e *ErrFormat) Error() string {
+	return fmt.Sprintf("request format error: %v", e.Err)
+}
+
 // Get single domain by id
 func (client *Client) GetSingleDomainById(domainId int) (Domain, error) {
 	request := Request{
@@ -64,14 +108,14 @@ func (client *Client) GetSingleDomainById(domainId int) (Domain, error) {
 		[]byte(""),
 	}
 	var domain Domain
-	body, err := client.apiRequest(request)
+	status, body, err := client.apiRequest(request)
 	if err != nil {
-		return domain, fmt.Errorf("api request error: %v", err)
+		return domain, err
 	}
-	err = json.Unmarshal(body, &domain)
-	if err != nil {
-		return domain, fmt.Errorf("unable to json-unmarshal response body: %v", err)
+	if status == 404 {
+		return domain, &ErrDomainIdNotFound{Id: domainId}
 	}
+	_ = json.Unmarshal(body, &domain)
 	return domain, err
 }
 
@@ -84,14 +128,14 @@ func (client *Client) GetSingleDomainByName(domainName string) (Domain, error) {
 		[]byte(""),
 	}
 	var domain Domain
-	body, err := client.apiRequest(request)
+	status, body, err := client.apiRequest(request)
 	if err != nil {
-		return domain, fmt.Errorf("api request error: %v", err)
+		return domain, &ErrApiRequest{Err: err}
 	}
-	err = json.Unmarshal(body, &domain)
-	if err != nil {
-		return domain, fmt.Errorf("unable to json-unmarshal response body: %v", err)
+	if status == 404 {
+		return domain, &ErrDomainNotFound{Domain: domainName}
 	}
+	_ = json.Unmarshal(body, &domain)
 	return domain, err
 }
 
@@ -106,14 +150,14 @@ func (client *Client) AddSingleDomain(domainName string) (Domain, error) {
 		reqBodyBytes,
 	}
 	var domain Domain
-	body, err := client.apiRequest(request)
+	status, body, err := client.apiRequest(request)
 	if err != nil {
-		return domain, fmt.Errorf("api request error: %v", err)
+		return domain, &ErrApiRequest{Err: err}
 	}
-	err = json.Unmarshal(body, &domain)
-	if err != nil {
-		return domain, fmt.Errorf("unable to json-unmarshal response body: %v", err)
+	if status == 400 {
+		return domain, &ErrDomainExists{Domain: domainName}
 	}
+	_ = json.Unmarshal(body, &domain)
 	return domain, err
 }
 
@@ -125,9 +169,15 @@ func (client *Client) DeleteSingleDomain(domainId int) error {
 		map[string]string{},
 		[]byte(""),
 	}
-	_, err := client.apiRequest(request)
+	status, _, err := client.apiRequest(request)
 	if err != nil {
-		return fmt.Errorf("api request error: %v", err)
+		return &ErrApiRequest{Err: err}
+	}
+	if status == 404 {
+		return &ErrDomainIdNotFound{Id: domainId}
+	}
+	if status == 400 {
+		return &ErrDomainIdPending{Id: domainId}
 	}
 	return err
 }
@@ -147,13 +197,10 @@ func (client *Client) GetAllDomains(index string, order string) (DomainsList, er
 		map[string]string{"sidx": index, "sord": order},
 		[]byte(""),
 	}
-	body, err := client.apiRequest(request)
+	_, body, err := client.apiRequest(request)
 	if err != nil {
-		return domains, fmt.Errorf("api request error: %v", err)
+		return domains, &ErrApiRequest{Err: err}
 	}
-	err = json.Unmarshal(body, &domains)
-	if err != nil {
-		return domains, fmt.Errorf("unable to json-unmarshal response body: %v", err)
-	}
+	_ = json.Unmarshal(body, &domains)
 	return domains, err
 }
