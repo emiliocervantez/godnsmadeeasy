@@ -61,7 +61,7 @@ type ErrDomainNotFound struct {
 }
 
 func (e *ErrDomainNotFound) Error() string {
-	return fmt.Sprintf("domain %v not found", e.Domain)
+	return fmt.Sprintf("domain %v not found in dme", e.Domain)
 }
 
 type ErrDomainIdNotFound struct {
@@ -70,7 +70,7 @@ type ErrDomainIdNotFound struct {
 }
 
 func (e *ErrDomainIdNotFound) Error() string {
-	return fmt.Sprintf("domain id %v not found", e.Id)
+	return fmt.Sprintf("domain id %v not found in dme", e.Id)
 }
 
 type ErrDomainExists struct {
@@ -79,7 +79,7 @@ type ErrDomainExists struct {
 }
 
 func (e *ErrDomainExists) Error() string {
-	return fmt.Sprintf("domain %v already exists", e.Domain)
+	return fmt.Sprintf("domain %v already exists in dme", e.Domain)
 }
 
 type ErrDomainIdPending struct {
@@ -88,15 +88,7 @@ type ErrDomainIdPending struct {
 }
 
 func (e *ErrDomainIdPending) Error() string {
-	return fmt.Sprintf("domain id %v is pending", e.Id)
-}
-
-type ErrFormat struct {
-	Err error
-}
-
-func (e *ErrFormat) Error() string {
-	return fmt.Sprintf("request format error: %v", e.Err)
+	return fmt.Sprintf("domain id %v is pending in dme", e.Id)
 }
 
 // Get single domain by id

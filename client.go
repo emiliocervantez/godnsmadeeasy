@@ -48,12 +48,24 @@ func getHmac(secret string, message string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+type errBody struct {
+	Error []string `json:"error"`
+}
+
 type ErrApiRequest struct {
 	Err error
 }
 
 func (e *ErrApiRequest) Error() string {
-	return fmt.Sprintf("api error: %v", e.Err)
+	return fmt.Sprintf("dme api error: %v", e.Err)
+}
+
+type ErrFormat struct {
+	Err error
+}
+
+func (e *ErrFormat) Error() string {
+	return fmt.Sprintf("dme request format error: %v", e.Err)
 }
 
 func (client *Client) apiRequest(request Request) (int, []byte, error) {

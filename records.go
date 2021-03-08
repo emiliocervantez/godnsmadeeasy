@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 type RecordsList struct {
@@ -54,7 +55,7 @@ type ErrRecordExists struct {
 }
 
 func (e *ErrRecordExists) Error() string {
-	return fmt.Sprintf("record (type: %v, name: %v, value: %v) exists", e.Type, e.Name, e.Value)
+	return fmt.Sprintf("record [type: %v, name: %v, value: %v] already exists in dme", e.Type, e.Name, e.Value)
 }
 
 type ErrDomainIdOrRecordIdNotFound struct {
@@ -64,7 +65,7 @@ type ErrDomainIdOrRecordIdNotFound struct {
 }
 
 func (e *ErrDomainIdOrRecordIdNotFound) Error() string {
-	return fmt.Sprintf("domain id %v or record id %v not found", e.DomainId, e.RecordId)
+	return fmt.Sprintf("domain id %v or record id %v not found in dme", e.DomainId, e.RecordId)
 }
 
 // get all records
@@ -113,15 +114,18 @@ func (client *Client) AddRecord(domainId int,
 	if err != nil {
 		return record, &ErrApiRequest{Err: err}
 	}
-	if status == 404 {
-		return record, &ErrRecordExists{
-			Type:  recordName,
-			Name:  recordType,
-			Value: recordValue,
-		}
-	}
 	if status == 400 {
-		return record, &ErrFormat{Err: err}
+		var eBody errBody
+		_ = json.Unmarshal(body, &eBody)
+		if strings.Contains(eBody.Error[0], "already exists") {
+			return record, &ErrRecordExists{
+				Type:  recordType,
+				Name:  recordName,
+				Value: recordValue,
+			}
+		} else {
+			return record, &ErrFormat{Err: fmt.Errorf(eBody.Error[0])}
+		}
 	}
 	_ = json.Unmarshal(body, &record)
 	return record, err
